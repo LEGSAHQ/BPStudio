@@ -1191,7 +1191,13 @@
 
         // ===== SAMBUNGAN KE GOOGLE SHEETS (Apps Script) =====
         const API_URL = 'https://script.google.com/macros/s/AKfycby4SmONUdBaRvQzVYb0z4Lkvr3OTLsAQ4_kSv3qCaKjRIxqdCGrZfcH2GMWucyHqR9Dfg/exec';
-        const STUDIO_WA = '60173311580'; // TUKAR: nombor WhatsApp studio (60 + nombor tanpa 0)
+        const STUDIO_WA = '60123456789'; // TUKAR: nombor WhatsApp studio (60 + nombor tanpa 0)
+        function fmtDate(d) { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : d; }
+        function fmtTime(t) {
+            const m = String(t || '').match(/^(\d{1,2}):(\d{2})/); if (!m) return t;
+            const h = +m[1], ap = h >= 12 ? 'pm' : 'am', h12 = h % 12 === 0 ? 12 : h % 12;
+            return `${h12}.${m[2]} ${ap}`;
+        }
         const digits = s => String(s || '').replace(/\D/g, '');
         async function apiGet(params) {
             const r = await fetch(API_URL + '?' + new URLSearchParams(params));
@@ -1513,7 +1519,7 @@
             const durationInfo = document.getElementById('package-duration-info');
             if (!container) return;
 
-            displayDate.innerText = state.wizard.selectedDate;
+            displayDate.innerText = fmtDate(state.wizard.selectedDate);
             const totalDuration = getWizardTotalDuration();
             durationInfo.innerText = `Tempoh Diperlukan: ${totalDuration} Minit`;
 
@@ -1542,13 +1548,13 @@
                 if (isConflict) {
                     return `
                         <button disabled class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold opacity-60 cursor-not-allowed flex items-center justify-between">
-                            <span>${time}</span> <span class="text-[9px] uppercase font-bold">BOOKED</span>
+                            <span>${fmtTime(time)}</span> <span class="text-[9px] uppercase font-bold">BOOKED</span>
                         </button>
                     `;
                 } else {
                     return `
                         <button onclick="pickTimeSlot('${time}')" class="p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between border ${isSelected ? 'bg-orange-600 text-white border-orange-500 ring-2 ring-orange-400' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}">
-                            <span>${time}</span> <span class="text-[9px] uppercase">${isSelected ? 'SELECTED' : 'AVAILABLE'}</span>
+                            <span>${fmtTime(time)}</span> <span class="text-[9px] uppercase">${isSelected ? 'SELECTED' : 'AVAILABLE'}</span>
                         </button>
                     `;
                 }
@@ -1776,9 +1782,9 @@
             document.getElementById('booking-success-container').classList.remove('hidden');
             const set = (id, t) => document.getElementById(id).innerText = t;
             set('success-booking-id', b.id); set('success-package', b.packageName); set('success-cust-name', b.custName);
-            set('success-date', b.date); set('success-time', `${b.startTime} - ${b.endTime}`);
+            set('success-date', fmtDate(b.date)); set('success-time', `${fmtTime(b.startTime)} - ${fmtTime(b.endTime)}`);
             set('success-deposit', `RM${b.depositDue.toFixed(2)}`); set('success-balance', `RM${bal.toFixed(2)}`);
-            const msg = `Assalamualaikum BP Studio. Saya telah membuat tempahan & bayar deposit.\n\n*Booking ID:* ${b.id}\n*Pakej:* ${b.packageName}\n*Tarikh:* ${b.date}\n*Masa:* ${b.startTime} - ${b.endTime}\n*Deposit:* RM${b.depositDue.toFixed(2)}\n\nBersama ini saya lampirkan resit bayaran. Terima kasih!`;
+            const msg = `Assalamualaikum BP Studio. Saya telah membuat tempahan & bayar deposit.\n\n*Booking ID:* ${b.id}\n*Pakej:* ${b.packageName}\n*Tarikh:* ${fmtDate(b.date)}\n*Masa:* ${fmtTime(b.startTime)} - ${fmtTime(b.endTime)}\n*Deposit:* RM${b.depositDue.toFixed(2)}\n\nBersama ini saya lampirkan resit bayaran. Terima kasih!`;
             document.getElementById('success-whatsapp-btn').href = `https://wa.me/${STUDIO_WA}?text=${encodeURIComponent(msg)}`;
             const f = (d, t) => d.replace(/-/g, '') + 'T' + t.replace(':', '') + '00';
             document.getElementById('success-calendar-btn').href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Sesi Fotografi @ BP Studio')}&dates=${f(b.date, b.startTime)}/${f(b.date, b.endTime)}&ctz=Asia/Kuala_Lumpur&details=${encodeURIComponent('Booking ID: ' + b.id)}`;
@@ -1818,7 +1824,7 @@
                         <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">${found.status}</span>
                     </div>
                     <p class="text-slate-300">Pakej: <strong class="text-white">${found.packageName}</strong></p>
-                    <p class="text-slate-300">Sesi: <strong class="text-white">${found.date} (${found.startTime} - ${found.endTime})</strong></p>
+                    <p class="text-slate-300">Sesi: <strong class="text-white">${fmtDate(found.date)} | ${fmtTime(found.startTime)} - ${fmtTime(found.endTime)}</strong></p>
                     <p class="text-slate-300">Status Suntingan: <span class="text-purple-400 font-bold">${found.editingStatus}</span></p>
                     <p class="text-slate-300">Status Cetakan: <span class="text-pink-400 font-bold">${found.printStatus}</span></p>
                     <p class="text-slate-300">Baki Bayaran: <span class="text-orange-400 font-bold">RM${found.balance.toFixed(2)}</span></p>`;
@@ -1830,7 +1836,7 @@
         function renderAdminAll() {
             renderAdminStats();
             renderAdminSchedule();
-            renderAdminBookingsTable();
+            filterAdminBookings();
             renderAdminPackagesList();
             renderAdminAddonsList();
             renderAdminProductionQueues();
@@ -1951,7 +1957,7 @@
                         <p class="text-[10px] text-slate-400">${b.custPhone}</p>
                     </td>
                     <td class="p-3">${b.packageName}</td>
-                    <td class="p-3">${b.date}<br><span class="text-slate-400">${b.startTime} - ${b.endTime}</span></td>
+                    <td class="p-3">${fmtDate(b.date)} | ${fmtTime(b.startTime)}<br><span class="text-slate-400">hingga ${fmtTime(b.endTime)}</span></td>
                     <td class="p-3">
                         <p class="font-bold text-white">RM${b.totalPrice.toFixed(2)}</p>
                         <p class="text-[10px] ${b.balance > 0 ? 'text-amber-400 font-bold' : 'text-slate-400'}">Baki: RM${b.balance.toFixed(2)}</p>
