@@ -539,6 +539,8 @@
                                     <i class="fa-solid fa-circle-check"></i> Saya Sudah Bayar - Hantar Resit
                                 </button>
                                 <p class="text-[10px] text-center text-slate-400">Tempahan disahkan selepas admin menyemak bayaran deposit anda. Hantar resit melalui WhatsApp.</p>
+                                <button onclick="goToBookingStep(4)" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"><i class="fa-solid fa-arrow-left"></i> Ubah Tempahan / Tambah Add-on</button>
+                                <p class="text-[10px] text-center text-slate-500">Slot anda kekal dikunci. Jika anda ubah apa-apa, tempahan akan dikemas kini secara automatik.</p>
                             </div>
                         </div>
                     </div>
@@ -1190,6 +1192,15 @@
         </div>
     </div>
 
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 text-center space-y-3 shadow-2xl max-w-xs mx-4">
+            <div class="w-12 h-12 mx-auto border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+            <p id="loading-text" class="text-sm font-bold text-white">Memproses...</p>
+            <p class="text-[11px] text-slate-400">Sila tunggu sebentar. Jangan tutup halaman ini.</p>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="bg-slate-950 border-t border-slate-800 py-8 text-center text-xs text-slate-500">
         <div class="max-w-7xl mx-auto px-4 space-y-2">
@@ -1197,6 +1208,7 @@
             <p><i class="fa-solid fa-location-dot text-orange-500"></i> 19463A Jln Cempaka Biru, Kg Dato Abu Bakar Baginda, 43000 Kajang, Selangor
                 • <a href="https://www.google.com/maps/search/?api=1&query=19463A+Jln+Cempaka+Biru+Kg+Dato+Abu+Bakar+Baginda+43000+Kajang+Selangor" target="_blank" rel="noopener" class="text-orange-400 hover:underline">Lihat di Peta</a></p>
             <p><i class="fa-solid fa-clock text-orange-500"></i> Waktu operasi: 8.30 pagi - 12.00 malam</p>
+            <p><i class="fa-brands fa-whatsapp text-orange-500"></i> WhatsApp: <a href="https://wa.me/60173311580" target="_blank" rel="noopener" class="text-orange-400 hover:underline">017-331 1580</a></p>
             <p>&copy; 2026 BP Studio. Hak Cipta Terpelihara.</p>
         </div>
     </footer>
@@ -1205,7 +1217,7 @@
 
         // ===== SAMBUNGAN KE GOOGLE SHEETS (Apps Script) =====
         const API_URL = 'https://script.google.com/macros/s/AKfycby4SmONUdBaRvQzVYb0z4Lkvr3OTLsAQ4_kSv3qCaKjRIxqdCGrZfcH2GMWucyHqR9Dfg/exec';
-        const STUDIO_WA = '60123456789'; // TUKAR: nombor WhatsApp studio (60 + nombor tanpa 0)
+        const STUDIO_WA = '60173311580'; // WhatsApp studio
         function fmtDate(d) { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : d; }
         function fmtTime(t) {
             const m = String(t || '').match(/^(\d{1,2}):(\d{2})/); if (!m) return t;
@@ -1213,9 +1225,12 @@
             return `${h12}.${m[2]} ${ap}`;
         }
         async function adminPost(body) {
-            try { const r = await apiPost(Object.assign({ pin: state.adminPin }, body)); if (r.error) { alert(r.error); return null; } return r; }
-            catch (e) { alert('Gagal sambung ke pelayan. Semak internet.'); return null; }
+            showLoading('Memproses...');
+            try { const r = await apiPost(Object.assign({ pin: state.adminPin }, body)); hideLoading(); if (r.error) { alert(r.error); return null; } return r; }
+            catch (e) { hideLoading(); alert('Gagal sambung ke pelayan. Semak internet.'); return null; }
         }
+        function showLoading(msg) { document.getElementById('loading-text').innerText = msg || 'Memproses...'; document.getElementById('loading-overlay').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loading-overlay').classList.add('hidden'); }
         const digits = s => String(s || '').replace(/\D/g, '');
         async function apiGet(params) {
             const r = await fetch(API_URL + '?' + new URLSearchParams(params));
@@ -1301,6 +1316,7 @@
         };
 
         window.onload = async function() {
+            showLoading('Memuatkan BP Studio...');
             const t = new Date(), p = n => String(n).padStart(2, '0');
             state.wizard.selectedDate = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
             state.calendarYear = t.getFullYear(); state.calendarMonth = t.getMonth();
@@ -1310,6 +1326,7 @@
                 state.settings = c.settings; state.blockedDates = c.blocked; state.seasonalMode = !!c.settings.seasonalMode;
             } catch (e) { alert('Tidak dapat sambung ke pelayan tempahan. Sila cuba sebentar lagi.'); }
             await loadSlots(state.wizard.selectedDate);
+            hideLoading();
             updateClock();
             initApp();
         };
@@ -1328,7 +1345,7 @@
                 const pin = prompt('Masukkan PIN Admin:');
                 if (!pin) return;
                 try {
-                    const d = await apiPost({ action: 'adminData', pin });
+                    showLoading('Membuka dashboard...'); let d; try { d = await apiPost({ action: 'adminData', pin }); } finally { hideLoading(); }
                     if (d.error) { alert(d.error); return; }
                     state.isAdmin = true; state.adminPin = pin; state.cal = null;
                     state.bookings = d.bookings.map(normBooking);
@@ -1514,7 +1531,7 @@
         }
 
         function selectCalendarDate(dateKey) {
-            loadSlots(dateKey).then(() => renderCalendarDays());
+            showLoading('Menyemak slot kosong...'); loadSlots(dateKey).then(() => { hideLoading(); renderCalendarDays(); });
             state.wizard.selectedDate = dateKey;
             state.wizard.selectedTime = null;
             document.getElementById('step2-next-btn').disabled = true;
@@ -1547,7 +1564,8 @@
             const possibleTimes = [];
             for (let m = timeToMinutes(state.settings.openingTime); m + totalDuration <= timeToMinutes(state.settings.closingTime); m += 60) possibleTimes.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'));
             
-            const existingBookings = state.bookings.filter(b => b.date === state.wizard.selectedDate && b.status !== 'CANCELLED' && b.status !== 'EXPIRED');
+            const own = state.wizard.booking; // slot milik tempahan sendiri tidak dikira sebagai BOOKED
+            const existingBookings = state.bookings.filter(b => !(own && b.date === own.date && b.startTime === own.startTime && b.endTime === own.endTime) && b.date === state.wizard.selectedDate && b.status !== 'CANCELLED' && b.status !== 'EXPIRED');
 
             container.innerHTML = possibleTimes.map(time => {
                 // Calculate proposed start & end in minutes from midnight
@@ -1744,18 +1762,26 @@
         async function submitBookingAndProceedToPayment() {
             const w = state.wizard, v = id => document.getElementById(id).value.trim();
             if (!v('cust-name') || !v('cust-phone') || !v('cust-email')) { alert('Sila lengkapkan nama, nombor telefon dan e-mel anda.'); return; }
-            const btn = document.querySelector('[onclick^="submitBookingAndProceedToPayment"]'); if (btn) btn.disabled = true;
+            const payload = { action: 'createBooking', custName: v('cust-name'), custPhone: digits(v('cust-phone')), custEmail: v('cust-email'),
+                pax: parseInt(v('cust-pax')) || 1, notes: v('cust-notes'), packageId: w.selectedPackage.id, date: w.selectedDate,
+                startTime: w.selectedTime, addons: w.selectedAddons, promoCode: w.appliedPromo ? w.appliedPromo.code : '' };
+            const sig = JSON.stringify(payload), showPay = () => {
+                goToBookingStep(5);
+                document.getElementById('payment-deposit-amount').innerText = `RM${w.booking.depositDue.toFixed(2)}`;
+            };
+            if (w.booking && w.bookingSig === sig) { showPay(); return; } // tiada perubahan: guna tempahan sedia ada
+            if (w.booking) { payload.replaceId = w.booking.id; payload.replacePhone = w.booking.custPhone; } // ganti tempahan lama
+            showLoading('Memproses tempahan anda...');
             let r;
-            try {
-                r = await apiPost({ action: 'createBooking', custName: v('cust-name'), custPhone: digits(v('cust-phone')), custEmail: v('cust-email'),
-                    pax: parseInt(v('cust-pax')) || 1, notes: v('cust-notes'), packageId: w.selectedPackage.id, date: w.selectedDate,
-                    startTime: w.selectedTime, addons: w.selectedAddons, promoCode: w.appliedPromo ? w.appliedPromo.code : '' });
-            } catch (e) { r = { error: 'Gagal sambung ke pelayan. Cuba lagi.' }; }
-            if (btn) btn.disabled = false;
-            if (r.error) { alert(r.error); if (/slot|Tarikh/.test(r.error)) { await loadSlots(w.selectedDate); goToBookingStep(2); } return; }
-            w.booking = r.booking;
-            goToBookingStep(5);
-            document.getElementById('payment-deposit-amount').innerText = `RM${r.booking.depositDue.toFixed(2)}`;
+            try { r = await apiPost(payload); } catch (e) { r = { error: 'Gagal sambung ke pelayan. Cuba lagi.' }; }
+            hideLoading();
+            if (r.error) {
+                alert(r.error);
+                if (/slot|Tarikh/.test(r.error)) { w.booking = null; w.bookingSig = null; await loadSlots(w.selectedDate); goToBookingStep(2); }
+                return;
+            }
+            w.booking = r.booking; w.bookingSig = sig;
+            showPay();
         }
 
         function startHoldTimer() {
@@ -1803,6 +1829,7 @@
             state.wizard.selectedTime = null;
             state.wizard.selectedAddons = [];
             state.wizard.appliedPromo = null;
+            state.wizard.booking = null; state.wizard.bookingSig = null;
             document.getElementById('booking-success-container').classList.add('hidden');
             goToBookingStep(1);
         }
