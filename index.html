@@ -1333,10 +1333,6 @@
                 { id: 'add-6', name: 'Additional Person (Per Pax)', category: 'PHOTOGRAPHY', price: 10, extraDuration: 0 }
             ],
 
-            promos: [
-                { code: 'RAYA2027', type: 'FLAT', amount: 20 },
-                { code: 'FAMILY10', type: 'PERCENT', amount: 10 }
-            ],
 
             // Pre-populated initial bookings for realistic testing
             bookings: [],
@@ -1745,21 +1741,23 @@
             if (step === 4) updateSummaryCalculations();
         }
 
-        function applyPromoCode() {
+        async function applyPromoCode() {
             const input = document.getElementById('cust-promo').value.trim().toUpperCase();
             const msg = document.getElementById('promo-msg');
-            const found = state.promos.find(p => p.code === input);
-
-            if (found) {
-                state.wizard.appliedPromo = found;
-                msg.innerText = `✓ Kod promo ${found.code} berjaya ditebus!`;
+            if (!input) { state.wizard.appliedPromo = null; msg.innerText = ''; updateSummaryCalculations(); return; }
+            showLoading('Menyemak kod promo...');
+            let r;
+            try { r = await apiGet({ action: 'promo', code: input }); } catch (e) { r = { valid: false, failed: true }; }
+            hideLoading();
+            if (r.valid) {
+                state.wizard.appliedPromo = { code: r.code, type: r.type, amount: r.amount };
+                msg.innerText = `✓ Kod promo ${r.code} berjaya ditebus!`;
                 msg.className = "text-[11px] mt-1 text-emerald-400 font-bold block";
             } else {
                 state.wizard.appliedPromo = null;
-                msg.innerText = "❌ Kod promo tidak sah atau telah tamat.";
+                msg.innerText = r.failed ? "Tidak dapat menyemak kod promo. Sila cuba lagi." : "❌ Kod promo tidak sah atau telah tamat.";
                 msg.className = "text-[11px] mt-1 text-rose-400 font-bold block";
             }
-
             updateSummaryCalculations();
         }
 
@@ -1767,7 +1765,7 @@
             if (!state.wizard.selectedPackage) return;
 
             document.getElementById('summary-package-name').innerText = state.wizard.selectedPackage.name;
-            document.getElementById('summary-date').innerText = state.wizard.selectedDate;
+            document.getElementById('summary-date').innerText = fmtDate(state.wizard.selectedDate);
             document.getElementById('summary-time').innerText = state.wizard.selectedTime || '09:00';
 
             const totalDur = getWizardTotalDuration();
